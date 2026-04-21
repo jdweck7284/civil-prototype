@@ -92,6 +92,8 @@
     .cat-Parks    { background: var(--civic-green-light); color: var(--civic-green); }
     .cat-Other    { background: var(--surface2); color: var(--text-muted); }
 
+    .neighborhood-tag { font-size: 10px; font-weight: 600; padding: 3px 9px; border-radius: 20px; background: #f0f0f5; color: #4a4a6a; text-transform: uppercase; letter-spacing: 0.4px; }
+
     .status-badge { font-size: 10px; font-weight: 600; padding: 3px 9px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.4px; }
     .status-Open        { background: #fce8e8; color: #a83232; }
     .status-In-Progress { background: var(--civic-amber-light); color: var(--civic-amber); }
@@ -193,6 +195,13 @@
     </select>
   </div>
 
+  <div class="filter-bar" style="margin-top: -6px;">
+    <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-right: 4px;">Neighborhood</span>
+    <button class="filter-btn active" data-hood="all">All areas</button>
+    <button class="filter-btn" data-hood="Santa Monica">Santa Monica</button>
+    <button class="filter-btn" data-hood="Venice">Venice</button>
+  </div>
+
   <div class="feed" id="feed"><div class="loading">Loading issues…</div></div>
 </div>
 
@@ -213,6 +222,13 @@
         <option value="Traffic">Traffic</option>
         <option value="Parks">Parks &amp; Green spaces</option>
         <option value="Other">Other</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Neighborhood *</label>
+      <select class="form-input" id="issue-hood">
+        <option value="Santa Monica">Santa Monica</option>
+        <option value="Venice">Venice</option>
       </select>
     </div>
     <div class="form-group">
@@ -303,10 +319,13 @@ const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // ════════════════════════════════════════════════════
 let currentUser = null;
 let currentFilter = 'all';
+let currentNeighborhood = 'all';
 let currentSort = 'votes';
 let userVotes = {};          // { issue_id: 1 | -1 }
 let expandedComments = {};   // { issue_id: true }
 let officialTargetId = null;
+
+const NEIGHBORHOODS = ['Santa Monica', 'Venice'];
 
 // ════════════════════════════════════════════════════
 //  Init
@@ -401,6 +420,7 @@ async function renderFeed(issuesParam) {
 
   // Filter
   if (currentFilter !== 'all') issues = issues.filter(i => i.category === currentFilter);
+  if (currentNeighborhood !== 'all') issues = issues.filter(i => i.neighborhood === currentNeighborhood);
 
   // Sort
   if (currentSort === 'votes') issues = [...issues].sort((a, b) => b.vote_score - a.vote_score);
@@ -430,7 +450,8 @@ async function renderFeed(issuesParam) {
         <div class="post-meta">
           <span class="category-tag cat-${issue.category}">${issue.category}</span>
           <span class="status-badge status-${statusKey}">${issue.status}</span>
-          <span class="post-meta-info">📍 ${issue.location} · ${dateStr}</span>
+          ${issue.neighborhood ? `<span class="neighborhood-tag">📍 ${escHtml(issue.neighborhood)}</span>` : ''}
+          <span class="post-meta-info">${issue.location} · ${dateStr}</span>
         </div>
         <div class="post-title">${escHtml(issue.title)}</div>
         ${issue.description ? `<div class="post-desc">${escHtml(issue.description)}</div>` : ''}
@@ -541,6 +562,7 @@ async function postComment(issueId) {
 async function submitIssue() {
   const title = document.getElementById('issue-title').value.trim();
   const category = document.getElementById('issue-cat').value;
+  const neighborhood = document.getElementById('issue-hood').value;
   const location = document.getElementById('issue-loc').value.trim();
   const description = document.getElementById('issue-desc').value.trim();
   const errEl = document.getElementById('report-error');
@@ -551,7 +573,7 @@ async function submitIssue() {
   btn.disabled = true; btn.textContent = 'Submitting…';
 
   const { error } = await sb.from('issues').insert({
-    title, category, location, description,
+    title, category, neighborhood, location, description,
     status: 'Open', vote_score: 1,
     user_id: currentUser.id,
   });
@@ -568,6 +590,7 @@ async function submitIssue() {
 
   closeModal('report-modal');
   document.getElementById('issue-title').value = '';
+  document.getElementById('issue-hood').value = 'Santa Monica';
   document.getElementById('issue-loc').value = '';
   document.getElementById('issue-desc').value = '';
   showToast('Issue submitted! Thank you.');
@@ -646,10 +669,18 @@ async function doSignOut() {
 //  Filters
 // ════════════════════════════════════════════════════
 function attachFilterListeners() {
-  document.querySelectorAll('.filter-btn').forEach(btn => {
+  document.querySelectorAll('.filter-btn[data-cat]').forEach(btn => {
     btn.addEventListener('click', () => {
       currentFilter = btn.dataset.cat;
-      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.filter-btn[data-cat]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderFeed();
+    });
+  });
+  document.querySelectorAll('.filter-btn[data-hood]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentNeighborhood = btn.dataset.hood;
+      document.querySelectorAll('.filter-btn[data-hood]').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       renderFeed();
     });
