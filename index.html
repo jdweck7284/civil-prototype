@@ -481,7 +481,7 @@
         <h3>What Civil is not</h3>
         <div class="sidebar-rule">
           <span class="sidebar-rule-icon">🚫</span>
-          <span class="sidebar-rule-text"><strong>Not a place to vent.</strong> If a post doesn't include a clear, actionable suggestion, it doesn't belong here. Frustration is valid — but it's most powerful when it comes with an ask.</span>
+          <span class="sidebar-rule-text"><strong>Not a place to vent.</strong> If a post doesn't include a clear, actionable suggestion, it doesn't belong here. Frustration is valid — but it's most powerful when it comes with a ask.</span>
         </div>
         <div class="sidebar-rule">
           <span class="sidebar-rule-icon">🚫</span>
@@ -564,7 +564,6 @@ const OFFICIAL_EMAILS = [
   'publicworks@yourcity.gov',
   'traffic@yourcity.gov',
   'parks@yourcity.gov',
-  'civilcommunitysite@gmail.com'
 ];
 
 // ════════════════════════════════════════════════════
@@ -1279,11 +1278,31 @@ async function submitNewPassword() {
   const btn = document.getElementById('reset-submit-btn');
   btn.disabled = true; btn.textContent = 'Updating…';
 
+  // Safari needs a short delay for the recovery session to fully settle
+  // before updateUser can succeed
+  await new Promise(resolve => setTimeout(resolve, 500));
+
+  // Set a hard timeout so the button never stays stuck
+  let timedOut = false;
+  const timeoutId = setTimeout(() => {
+    timedOut = true;
+    btn.disabled = false; btn.textContent = 'Update password';
+    showError(errEl, 'Request timed out. Please try again.');
+  }, 8000);
+
   const { error } = await sb.auth.updateUser({ password: pass });
+
+  clearTimeout(timeoutId);
+  if (timedOut) return;
 
   btn.disabled = false; btn.textContent = 'Update password';
 
-  if (error) { showError(errEl, error.message); return; }
+  if (error) {
+    // Safari sometimes returns a session error even on success — 
+    // check if we actually have a valid session before showing an error
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { showError(errEl, error.message); return; }
+  }
 
   // Clear the form fields
   document.getElementById('reset-pass').value = '';
