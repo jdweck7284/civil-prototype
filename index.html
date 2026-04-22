@@ -195,6 +195,12 @@
     .feedback-fab { position: fixed; bottom: 24px; left: 24px; background: var(--civic-blue); color: #fff; border: none; border-radius: 20px; padding: 10px 16px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; z-index: 500; transition: background 0.15s; display: flex; align-items: center; gap: 6px; }
     .feedback-fab:hover { background: #1e4875; }
 
+    /* ── Password field with show/hide toggle ── */
+    .pass-wrapper { position: relative; }
+    .pass-wrapper .form-input { padding-right: 44px; }
+    .pass-toggle { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 13px; font-family: "DM Sans", sans-serif; font-weight: 500; padding: 2px 4px; line-height: 1; }
+    .pass-toggle:hover { color: var(--text-main); }
+
     /* ── Forgot password link ── */
     .forgot-link { font-size: 12px; color: var(--civic-blue); cursor: pointer; text-align: right; display: block; margin-top: -6px; margin-bottom: 2px; text-decoration: underline; }
     .forgot-link:hover { color: var(--civic-accent); }
@@ -267,6 +273,7 @@
   <div class="modal">
     <h2>Report a community issue</h2>
     <div class="error-msg" id="report-error"></div>
+    <div class="success-msg" id="report-success"></div>
     <div class="form-group">
       <label class="form-label">Title *</label>
       <input type="text" class="form-input" id="issue-title" placeholder="e.g. Large pothole on Elm St near Oak Ave" maxlength="120" />
@@ -274,6 +281,7 @@
     <div class="form-group">
       <label class="form-label">Category *</label>
       <select class="form-input" id="issue-cat">
+        <option value="" disabled selected>Select a category</option>
         <option value="Roads">Roads &amp; Potholes</option>
         <option value="Safety">Safety &amp; Signs</option>
         <option value="Traffic">Traffic</option>
@@ -284,6 +292,7 @@
     <div class="form-group">
       <label class="form-label">Neighborhood *</label>
       <select class="form-input" id="issue-hood">
+        <option value="" disabled selected>Select a neighborhood</option>
         <option value="Santa Monica">Santa Monica</option>
         <option value="Venice">Venice</option>
       </select>
@@ -293,7 +302,7 @@
       <input type="text" class="form-input" id="issue-loc" placeholder="e.g. 400 block of Elm St, near Oak Ave" maxlength="120" />
     </div>
     <div class="form-group">
-      <label class="form-label">Description</label>
+      <label class="form-label">Description *</label>
       <textarea class="form-input" id="issue-desc" placeholder="Describe the issue and why it matters to the community…" maxlength="800"></textarea>
     </div>
     <div class="modal-actions">
@@ -314,7 +323,10 @@
     </div>
     <div class="form-group">
       <label class="form-label">Password</label>
-      <input type="password" class="form-input" id="auth-pass" placeholder="••••••••" />
+      <div class="pass-wrapper">
+        <input type="password" class="form-input" id="auth-pass" placeholder="••••••••" />
+        <button type="button" class="pass-toggle" onclick="togglePassVisibility('auth-pass', this)">Show</button>
+      </div>
       <span class="forgot-link" id="forgot-link" onclick="doForgotPassword()">Forgot password?</span>
     </div>
     <div class="success-msg" id="auth-success"></div>
@@ -459,11 +471,17 @@
     <div class="success-msg" id="reset-success"></div>
     <div class="form-group">
       <label class="form-label">New password</label>
-      <input type="password" class="form-input" id="reset-pass" placeholder="At least 6 characters" />
+      <div class="pass-wrapper">
+        <input type="password" class="form-input" id="reset-pass" placeholder="At least 6 characters" />
+        <button type="button" class="pass-toggle" onclick="togglePassVisibility('reset-pass', this)">Show</button>
+      </div>
     </div>
     <div class="form-group">
       <label class="form-label">Confirm new password</label>
-      <input type="password" class="form-input" id="reset-pass-confirm" placeholder="Re-enter your new password" />
+      <div class="pass-wrapper">
+        <input type="password" class="form-input" id="reset-pass-confirm" placeholder="Re-enter your new password" />
+        <button type="button" class="pass-toggle" onclick="togglePassVisibility('reset-pass-confirm', this)">Show</button>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-primary" id="reset-submit-btn" onclick="submitNewPassword()">Update password</button>
@@ -754,7 +772,11 @@ async function submitIssue() {
   const description = document.getElementById('issue-desc').value.trim();
   const errEl = document.getElementById('report-error');
 
-  if (!title || !location) { showError(errEl, 'Please fill in the title and location.'); return; }
+  if (!title) { showError(errEl, 'Please enter a title for the issue.'); return; }
+  if (!category) { showError(errEl, 'Please select a category.'); return; }
+  if (!neighborhood) { showError(errEl, 'Please select a neighborhood.'); return; }
+  if (!location) { showError(errEl, 'Please enter a location.'); return; }
+  if (!description) { showError(errEl, 'Please add a description.'); return; }
 
   // ── Rate limit: max 5 issues per hour, no two submissions within 2 minutes ──
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
@@ -797,13 +819,24 @@ async function submitIssue() {
     userVotes[newIssue.id] = 1;
   }
 
-  closeModal('report-modal');
+  // Reset form fields
   document.getElementById('issue-title').value = '';
-  document.getElementById('issue-hood').value = 'Santa Monica';
+  document.getElementById('issue-cat').value = '';
+  document.getElementById('issue-hood').value = '';
   document.getElementById('issue-loc').value = '';
   document.getElementById('issue-desc').value = '';
-  showToast('Issue submitted! Thank you.');
-  await loadIssues();
+
+  // Show green success banner inside the modal before closing
+  const successEl = document.getElementById('report-success');
+  successEl.textContent = '✓ Issue filed. The city's on notice.';
+  successEl.style.display = 'block';
+
+  // Close after a beat and reload the feed
+  setTimeout(async () => {
+    successEl.style.display = 'none';
+    closeModal('report-modal');
+    await loadIssues();
+  }, 2000);
 }
 
 // ════════════════════════════════════════════════════
@@ -1047,9 +1080,26 @@ async function submitNewPassword() {
 
   if (error) { showError(errEl, error.message); return; }
 
-  successEl.textContent = 'Password updated! You are now signed in.';
+  // Clear the form fields
+  document.getElementById('reset-pass').value = '';
+  document.getElementById('reset-pass-confirm').value = '';
+
+  // Show the green success banner inside the modal first
+  successEl.textContent = '✓ Password updated successfully! You are now signed in.';
   successEl.style.display = 'block';
-  setTimeout(() => closeModal('reset-modal'), 2500);
+  successEl.style.background = 'var(--civic-green-light)';
+  successEl.style.color = 'var(--civic-green)';
+  successEl.style.borderRadius = 'var(--radius)';
+  successEl.style.padding = '10px 14px';
+  successEl.style.fontSize = '13px';
+  successEl.style.fontWeight = '500';
+
+  // Close modal after user has had time to read it
+  setTimeout(() => {
+    closeModal('reset-modal');
+    successEl.style.display = 'none';
+    showToast('✓ Password updated. Welcome back!');
+  }, 2200);
 }
 
 // ════════════════════════════════════════════════════
@@ -1080,6 +1130,16 @@ function closeSidebar() {
 }
 function handleSidebarOverlayClick(e) {
   if (e.target === document.getElementById('sidebar-overlay')) closeSidebar();
+}
+
+// ════════════════════════════════════════════════════
+//  Password visibility toggle
+// ════════════════════════════════════════════════════
+function togglePassVisibility(inputId, btn) {
+  const input = document.getElementById(inputId);
+  const isHidden = input.type === 'password';
+  input.type = isHidden ? 'text' : 'password';
+  btn.textContent = isHidden ? 'Hide' : 'Show';
 }
 </script>
 </body>
