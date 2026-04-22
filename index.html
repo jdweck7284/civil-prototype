@@ -173,6 +173,33 @@
     .toast { position: fixed; bottom: 24px; right: 24px; background: var(--text-main); color: #fff; padding: 12px 18px; border-radius: var(--radius); font-size: 13px; font-weight: 500; z-index: 2000; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
     .toast.show { opacity: 1; }
 
+
+    /* ── Info sidebar ── */
+    .sidebar-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; justify-content: flex-end; z-index: 1000; }
+    .sidebar-panel { background: var(--surface); width: 100%; max-width: 420px; height: 100%; overflow-y: auto; display: flex; flex-direction: column; }
+    .sidebar-header { padding: 20px 24px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: var(--surface); z-index: 1; }
+    .sidebar-header h2 { font-family: 'Playfair Display', serif; font-size: 20px; color: var(--civic-blue); }
+    .sidebar-close { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border); background: none; cursor: pointer; font-size: 16px; color: var(--text-muted); display: flex; align-items: center; justify-content: center; }
+    .sidebar-close:hover { background: var(--surface2); }
+    .sidebar-body { padding: 24px; flex: 1; }
+    .sidebar-section { margin-bottom: 28px; }
+    .sidebar-section h3 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-muted); margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    .sidebar-section p { font-size: 13px; line-height: 1.75; color: var(--text-main); margin-bottom: 10px; }
+    .sidebar-section p:last-child { margin-bottom: 0; }
+    .sidebar-rule { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+    .sidebar-rule-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+    .sidebar-rule-text { font-size: 13px; line-height: 1.6; color: var(--text-main); }
+    .sidebar-divider { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+
+    /* ── Feedback button (floating) ── */
+    .feedback-fab { position: fixed; bottom: 24px; left: 24px; background: var(--civic-blue); color: #fff; border: none; border-radius: 20px; padding: 10px 16px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; z-index: 500; transition: background 0.15s; display: flex; align-items: center; gap: 6px; }
+    .feedback-fab:hover { background: #1e4875; }
+
+    /* ── Forgot password link ── */
+    .forgot-link { font-size: 12px; color: var(--civic-blue); cursor: pointer; text-align: right; display: block; margin-top: -6px; margin-bottom: 2px; text-decoration: underline; }
+    .forgot-link:hover { color: var(--civic-accent); }
+    .success-msg { font-size: 13px; color: var(--civic-green); background: var(--civic-green-light); padding: 8px 12px; border-radius: var(--radius); margin-bottom: 12px; display: none; }
+
     /* ── Empty state ── */
     .empty-state { text-align: center; padding: 3rem; color: var(--text-muted); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); }
 
@@ -199,6 +226,7 @@
     <span id="user-badge" class="official-badge" style="display:none; cursor:pointer;" onclick="openProfile()"></span>
     <button class="btn btn-sm" id="auth-btn">Sign in</button>
     <button class="btn btn-accent btn-sm" id="report-btn">+ Report issue</button>
+    <button class="btn btn-sm" onclick="openSidebar()" title="About Civil" style="padding: 5px 10px; font-size: 16px; line-height: 1;">☰</button>
   </div>
 </div>
 
@@ -287,7 +315,9 @@
     <div class="form-group">
       <label class="form-label">Password</label>
       <input type="password" class="form-input" id="auth-pass" placeholder="••••••••" />
+      <span class="forgot-link" id="forgot-link" onclick="doForgotPassword()">Forgot password?</span>
     </div>
+    <div class="success-msg" id="auth-success"></div>
     <div class="modal-actions">
       <button class="btn" id="auth-toggle-btn">Create account instead</button>
       <button class="btn btn-primary" id="auth-submit-btn">Sign in</button>
@@ -351,6 +381,81 @@
   </div>
 </div>
 
+<!-- Info Sidebar -->
+<div class="sidebar-overlay" id="sidebar-overlay" style="display:none;" onclick="handleSidebarOverlayClick(event)">
+  <div class="sidebar-panel">
+    <div class="sidebar-header">
+      <h2>About Civil</h2>
+      <button class="sidebar-close" onclick="closeSidebar()">✕</button>
+    </div>
+    <div class="sidebar-body">
+
+      <div class="sidebar-section">
+        <p>Civil is a community tool built around one simple idea: your neighbors and your local government should be on the same page.</p>
+        <p>It's a place to surface the issues that matter in your neighborhood — and to hold the people responsible for fixing them accountable in a way that's transparent, constructive, and visible to everyone.</p>
+      </div>
+
+      <div class="sidebar-section">
+        <h3>What Civil is for</h3>
+        <div class="sidebar-rule">
+          <span class="sidebar-rule-icon">✅</span>
+          <span class="sidebar-rule-text"><strong>Actionable suggestions.</strong> Report something specific that can be investigated, prioritized, and addressed — a pothole, a broken signal, an unsafe crossing, a park that needs attention.</span>
+        </div>
+        <div class="sidebar-rule">
+          <span class="sidebar-rule-icon">✅</span>
+          <span class="sidebar-rule-text"><strong>Community signal.</strong> Upvote issues you care about too. The more votes an issue gets, the harder it is for officials to ignore. Your vote is your voice.</span>
+        </div>
+        <div class="sidebar-rule">
+          <span class="sidebar-rule-icon">✅</span>
+          <span class="sidebar-rule-text"><strong>Two-way communication.</strong> Local government departments can log in, post status updates, and tell the community what they're doing about it. No more shouting into the void.</span>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <h3>What Civil is not</h3>
+        <div class="sidebar-rule">
+          <span class="sidebar-rule-icon">🚫</span>
+          <span class="sidebar-rule-text"><strong>Not a place to vent.</strong> If a post doesn't include a clear, actionable suggestion, it doesn't belong here. Frustration is valid — but it's most powerful when it comes with a ask.</span>
+        </div>
+        <div class="sidebar-rule">
+          <span class="sidebar-rule-icon">🚫</span>
+          <span class="sidebar-rule-text"><strong>Not social media.</strong> Civil isn't for general discussion, opinions on politics, or anything that isn't directly tied to a community improvement. Keep it focused and keep it useful.</span>
+        </div>
+        <div class="sidebar-rule">
+          <span class="sidebar-rule-icon">🚫</span>
+          <span class="sidebar-rule-text"><strong>Not anonymous complaints.</strong> Every post is attached to an account. Own your suggestion. Good ideas don't need to hide.</span>
+        </div>
+      </div>
+
+      <hr class="sidebar-divider" />
+
+      <div class="sidebar-section">
+        <h3>How it works</h3>
+        <p><strong>1. Report</strong> — Submit an issue with a clear title, category, neighborhood, and location. Describe why it matters.</p>
+        <p><strong>2. Vote</strong> — Upvote issues you've noticed too. A ranked list of community priorities is far more powerful than a single complaint.</p>
+        <p><strong>3. Watch</strong> — Local officials respond with status updates directly on the issue. You'll see when something moves from Open → In Progress → Resolved.</p>
+      </div>
+
+      <hr class="sidebar-divider" />
+
+      <div class="sidebar-section">
+        <h3>Currently piloting in</h3>
+        <p>Santa Monica and Venice. If this works the way we hope, there's no reason it should stop at neighborhood borders.</p>
+      </div>
+
+      <div style="text-align: center; padding-top: 8px;">
+        <a href="mailto:civilcommunitysite@gmail.com?subject=Feedback%20for%20Civil" style="font-size: 12px; color: var(--text-muted); text-decoration: underline;">Send us feedback</a>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Feedback FAB -->
+<button class="feedback-fab" onclick="window.location.href='mailto:civilcommunitysite@gmail.com?subject=Feedback%20for%20Civil'">
+  💬 Give feedback
+</button>
+
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
@@ -366,7 +471,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const OFFICIAL_EMAILS = [
   'publicworks@yourcity.gov',
   'traffic@yourcity.gov',
-  'jonathandweck@icloud.com',
+  'parks@yourcity.gov',
 ];
 
 // ════════════════════════════════════════════════════
@@ -631,6 +736,28 @@ async function submitIssue() {
 
   if (!title || !location) { showError(errEl, 'Please fill in the title and location.'); return; }
 
+  // ── Rate limit: max 5 issues per hour, no two submissions within 2 minutes ──
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const { data: recentIssues } = await sb.from('issues')
+    .select('created_at')
+    .eq('user_id', currentUser.id)
+    .gte('created_at', oneHourAgo)
+    .order('created_at', { ascending: false });
+
+  if (recentIssues && recentIssues.length >= 5) {
+    showError(errEl, "You\'ve submitted 5 issues in the last hour. Please wait a little while before submitting more.");
+    return;
+  }
+
+  if (recentIssues && recentIssues.length > 0) {
+    const minsAgo = (Date.now() - new Date(recentIssues[0].created_at)) / 60000;
+    if (minsAgo < 2) {
+      const secsLeft = Math.ceil((2 - minsAgo) * 60);
+      showError(errEl, `Please wait ${secsLeft} seconds before submitting another issue.`);
+      return;
+    }
+  }
+
   const btn = document.getElementById('submit-issue-btn');
   btn.disabled = true; btn.textContent = 'Submitting…';
 
@@ -796,6 +923,9 @@ function syncAuthModal() {
   document.getElementById('auth-submit-btn').textContent = authMode === 'signin' ? 'Sign in' : 'Create account';
   document.getElementById('auth-toggle-btn').textContent = authMode === 'signin' ? 'Create account instead' : 'Sign in instead';
   document.getElementById('auth-error').style.display = 'none';
+  document.getElementById('auth-success').style.display = 'none';
+  const forgotLink = document.getElementById('forgot-link');
+  if (forgotLink) forgotLink.style.display = authMode === 'signin' ? 'block' : 'none';
 }
 
 async function doAuth() {
@@ -860,6 +990,36 @@ function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ════════════════════════════════════════════════════
+//  Forgot password
+// ════════════════════════════════════════════════════
+async function doForgotPassword() {
+  const email = document.getElementById('auth-email').value.trim();
+  const errEl = document.getElementById('auth-error');
+  const successEl = document.getElementById('auth-success');
+  if (!email) { showError(errEl, 'Please enter your email address above first.'); return; }
+  errEl.style.display = 'none';
+  const { error } = await sb.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin,
+  });
+  if (error) { showError(errEl, error.message); return; }
+  successEl.textContent = 'Password reset email sent! Check your inbox.';
+  successEl.style.display = 'block';
+}
+
+// ════════════════════════════════════════════════════
+//  Info sidebar
+// ════════════════════════════════════════════════════
+function openSidebar() {
+  document.getElementById('sidebar-overlay').style.display = 'flex';
+}
+function closeSidebar() {
+  document.getElementById('sidebar-overlay').style.display = 'none';
+}
+function handleSidebarOverlayClick(e) {
+  if (e.target === document.getElementById('sidebar-overlay')) closeSidebar();
 }
 </script>
 </body>
