@@ -392,7 +392,7 @@
 
       <div class="sidebar-section">
         <p>Civil is a community tool built around one simple idea: your neighbors and your local government should be on the same page.</p>
-        <p>It's a place to surface the issues that matter in your neighborhood — and to hold the people responsible for fixing them accountable in a way that's transparent, constructive, and visible to everyone.</p>
+        <p>Think of it as a running list of things your neighborhood needs fixed — and a way to make sure the city actually sees it.</p>
       </div>
 
       <div class="sidebar-section">
@@ -447,6 +447,26 @@
         <a href="mailto:civilcommunitysite@gmail.com?subject=Feedback%20for%20Civil" style="font-size: 12px; color: var(--text-muted); text-decoration: underline;">Send us feedback</a>
       </div>
 
+    </div>
+  </div>
+</div>
+
+<!-- Password Reset Modal -->
+<div class="modal-overlay" id="reset-modal" style="display:none;">
+  <div class="modal">
+    <h2>Set a new password</h2>
+    <div class="error-msg" id="reset-error"></div>
+    <div class="success-msg" id="reset-success"></div>
+    <div class="form-group">
+      <label class="form-label">New password</label>
+      <input type="password" class="form-input" id="reset-pass" placeholder="At least 6 characters" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Confirm new password</label>
+      <input type="password" class="form-input" id="reset-pass-confirm" placeholder="Re-enter your new password" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="reset-submit-btn" onclick="submitNewPassword()">Update password</button>
     </div>
   </div>
 </div>
@@ -990,6 +1010,46 @@ function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+
+// ════════════════════════════════════════════════════
+//  Password reset handler
+// ════════════════════════════════════════════════════
+// Supabase puts the recovery token in the URL hash when
+// the user clicks the reset link in their email.
+// We detect it here and show the new-password modal.
+sb.auth.onAuthStateChange(async (event, session) => {
+  if (event === 'PASSWORD_RECOVERY') {
+    openModal('reset-modal');
+  }
+});
+
+async function submitNewPassword() {
+  const pass = document.getElementById('reset-pass').value;
+  const confirm = document.getElementById('reset-pass-confirm').value;
+  const errEl = document.getElementById('reset-error');
+  const successEl = document.getElementById('reset-success');
+
+  errEl.style.display = 'none';
+  successEl.style.display = 'none';
+
+  if (!pass) { showError(errEl, 'Please enter a new password.'); return; }
+  if (pass.length < 6) { showError(errEl, 'Password must be at least 6 characters.'); return; }
+  if (pass !== confirm) { showError(errEl, 'Passwords do not match.'); return; }
+
+  const btn = document.getElementById('reset-submit-btn');
+  btn.disabled = true; btn.textContent = 'Updating…';
+
+  const { error } = await sb.auth.updateUser({ password: pass });
+
+  btn.disabled = false; btn.textContent = 'Update password';
+
+  if (error) { showError(errEl, error.message); return; }
+
+  successEl.textContent = 'Password updated! You are now signed in.';
+  successEl.style.display = 'block';
+  setTimeout(() => closeModal('reset-modal'), 2500);
 }
 
 // ════════════════════════════════════════════════════
