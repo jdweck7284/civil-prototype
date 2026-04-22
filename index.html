@@ -206,6 +206,50 @@
     .forgot-link:hover { color: var(--civic-accent); }
     .success-msg { font-size: 13px; color: var(--civic-green); background: var(--civic-green-light); padding: 8px 12px; border-radius: var(--radius); margin-bottom: 12px; display: none; }
 
+
+    /* ── Issue detail view ── */
+    .detail-view { display: none; }
+    .detail-view.active { display: block; }
+    .feed-view { display: block; }
+    .feed-view.hidden { display: none; }
+
+    .back-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; color: var(--civic-blue); cursor: pointer; padding: 6px 0; margin-bottom: 16px; background: none; border: none; font-family: 'DM Sans', sans-serif; }
+    .back-btn:hover { color: var(--civic-accent); }
+    .back-btn svg { width: 16px; height: 16px; }
+
+    .detail-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 16px; }
+    .detail-vote-row { display: flex; align-items: center; gap: 8px; padding: 14px 20px 0; }
+    .detail-vote-btn { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface2); cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 14px; transition: all 0.15s; }
+    .detail-vote-btn:hover { background: var(--civic-blue-light); color: var(--civic-blue); border-color: var(--civic-blue); }
+    .detail-vote-btn.voted-up { color: var(--civic-accent); background: var(--civic-accent-light); border-color: var(--civic-accent); }
+    .detail-vote-btn.voted-down { color: var(--civic-blue); background: var(--civic-blue-light); border-color: var(--civic-blue); }
+    .detail-vote-count { font-size: 16px; font-weight: 700; color: var(--text-main); }
+    .detail-vote-label { font-size: 11px; color: var(--text-muted); }
+
+    .detail-body { padding: 16px 20px 20px; }
+    .detail-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+    .detail-title { font-size: 20px; font-weight: 700; line-height: 1.35; margin-bottom: 10px; color: var(--text-main); }
+    .detail-desc { font-size: 14px; color: var(--text-muted); line-height: 1.7; margin-bottom: 14px; }
+    .detail-location { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; }
+    .detail-byline { font-size: 12px; color: var(--text-muted); padding-top: 12px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+
+    .detail-comments { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+    .detail-comments-header { padding: 14px 20px; border-bottom: 1px solid var(--border); font-size: 13px; font-weight: 600; color: var(--text-main); display: flex; align-items: center; justify-content: space-between; }
+    .detail-comments-body { padding: 16px 20px; }
+    .detail-comment { display: flex; gap: 12px; margin-bottom: 16px; }
+    .detail-comment:last-of-type { margin-bottom: 0; }
+    .detail-comment-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--surface2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: var(--text-muted); flex-shrink: 0; }
+    .detail-comment-avatar.official { background: var(--civic-blue-light); border-color: var(--civic-blue); color: var(--civic-blue); }
+    .detail-comment-bubble { flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 0 var(--radius-lg) var(--radius-lg) var(--radius-lg); padding: 10px 14px; }
+    .detail-comment-bubble.official { background: var(--civic-blue-light); border-color: #c5d8ed; }
+    .detail-comment-author { font-size: 12px; font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+    .detail-comment-text { font-size: 13px; line-height: 1.6; color: var(--text-main); }
+    .detail-comment-date { font-size: 11px; color: var(--text-muted); margin-top: 5px; }
+    .detail-comment-form { display: flex; gap: 10px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+    .detail-comment-input { flex: 1; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 13px; font-family: 'DM Sans', sans-serif; background: var(--surface); color: var(--text-main); }
+    .detail-comment-input:focus { outline: none; border-color: var(--civic-blue); }
+    .no-comments { text-align: center; padding: 2rem; color: var(--text-muted); font-size: 13px; }
+
     /* ── Empty state ── */
     .empty-state { text-align: center; padding: 3rem; color: var(--text-muted); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); }
 
@@ -265,7 +309,17 @@
     <button class="filter-btn" data-hood="Venice">Venice</button>
   </div>
 
-  <div class="feed" id="feed"><div class="loading">Loading issues…</div></div>
+  <div class="feed-view" id="feed-view">
+    <div class="feed" id="feed"><div class="loading">Loading issues…</div></div>
+  </div>
+
+  <div class="detail-view" id="detail-view">
+    <button class="back-btn" onclick="closeDetail()">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 12L6 8l4-4"/></svg>
+      Back to all issues
+    </button>
+    <div id="detail-content"></div>
+  </div>
 </div>
 
 <!-- Report Issue Modal -->
@@ -657,7 +711,7 @@ async function renderFeed(issuesParam) {
           ${issue.neighborhood ? `<span class="neighborhood-tag">📍 ${escHtml(issue.neighborhood)}</span>` : ''}
           <span class="post-meta-info">${issue.location} · ${dateStr}</span>
         </div>
-        <div class="post-title">${escHtml(issue.title)}</div>
+        <div class="post-title" style="cursor:pointer;" onclick="openDetail('${issue.id}')">${escHtml(issue.title)}</div>
         ${issue.description ? `<div class="post-desc">${escHtml(issue.description)}</div>` : ''}
         ${issue.official_response ? `
         <div class="official-response">
@@ -863,6 +917,156 @@ async function submitOfficialUpdate() {
   document.getElementById('official-text').value = '';
   showToast('Update posted!');
   await loadIssues();
+}
+
+
+// ════════════════════════════════════════════════════
+//  Issue detail view
+// ════════════════════════════════════════════════════
+async function openDetail(issueId) {
+  // Switch view
+  document.getElementById('feed-view').classList.add('hidden');
+  document.getElementById('detail-view').classList.add('active');
+  window.scrollTo(0, 0);
+
+  const container = document.getElementById('detail-content');
+  container.innerHTML = '<div class="loading">Loading…</div>';
+
+  // Fetch issue
+  const { data: issue, error } = await sb.from('issues').select('*').eq('id', issueId).single();
+  if (error || !issue) { container.innerHTML = '<div class="empty-state">Could not load this issue.</div>'; return; }
+
+  // Fetch comments
+  const { data: comments } = await sb.from('comments').select('*').eq('issue_id', issueId).order('created_at', { ascending: true });
+
+  const uv = userVotes[issueId] || 0;
+  const statusKey = issue.status.replace(' ', '-');
+  const dateStr = new Date(issue.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const isOfficial = currentUser && OFFICIAL_EMAILS.includes(currentUser.email);
+  const isOwner = currentUser && issue.user_id === currentUser.id;
+  const commentList = (comments || []);
+
+  container.innerHTML = `
+    <div class="detail-card">
+      <div class="detail-vote-row">
+        <button class="detail-vote-btn ${uv === 1 ? 'voted-up' : ''}" onclick="voteDetail('${issue.id}', 1)">▲</button>
+        <span class="detail-vote-count" id="detail-score-${issue.id}">${issue.vote_score ?? 0}</span>
+        <button class="detail-vote-btn ${uv === -1 ? 'voted-down' : ''}" onclick="voteDetail('${issue.id}', -1)">▼</button>
+        <span class="detail-vote-label">votes</span>
+      </div>
+      <div class="detail-body">
+        <div class="detail-meta">
+          <span class="category-tag cat-${issue.category}">${issue.category}</span>
+          <span class="status-badge status-${statusKey}">${issue.status}</span>
+          ${issue.neighborhood ? `<span class="neighborhood-tag">📍 ${escHtml(issue.neighborhood)}</span>` : ''}
+        </div>
+        <div class="detail-title">${escHtml(issue.title)}</div>
+        ${issue.description ? `<div class="detail-desc">${escHtml(issue.description)}</div>` : ''}
+        <div class="detail-location">📍 ${escHtml(issue.location)}</div>
+        ${issue.official_response ? `
+        <div class="official-response">
+          <div class="official-response-header">
+            <div class="official-avatar">🏛</div>
+            <div>
+              <div class="official-name">${escHtml(issue.official_name || 'City Official')}</div>
+              <div class="official-dept">Official update</div>
+            </div>
+          </div>
+          <p>${escHtml(issue.official_response)}</p>
+        </div>` : ''}
+        <div class="detail-byline">
+          <span>Reported on ${dateStr}</span>
+          <div style="display:flex; gap:8px;">
+            ${isOfficial ? `<button class="btn btn-sm" onclick="openOfficialModal('${issue.id}')">✏️ Post update</button>` : ''}
+            ${isOwner ? `<button class="btn btn-sm btn-danger" onclick="confirmDelete('${issue.id}')">🗑 Delete</button>` : ''}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-comments">
+      <div class="detail-comments-header">
+        <span>💬 ${commentList.length} comment${commentList.length !== 1 ? 's' : ''}</span>
+      </div>
+      <div class="detail-comments-body" id="detail-comments-body-${issue.id}">
+        ${commentList.length === 0
+          ? '<div class="no-comments">No comments yet. Be the first to weigh in.</div>'
+          : commentList.map(c => `
+            <div class="detail-comment">
+              <div class="detail-comment-avatar ${c.is_official ? 'official' : ''}">${(c.author_name || 'A').charAt(0).toUpperCase()}</div>
+              <div class="detail-comment-bubble ${c.is_official ? 'official' : ''}">
+                <div class="detail-comment-author">
+                  ${escHtml(c.author_name || 'Anonymous')}
+                  ${c.is_official ? '<span class="official-badge" style="font-size:10px;">Official</span>' : ''}
+                </div>
+                <div class="detail-comment-text">${escHtml(c.body)}</div>
+                <div class="detail-comment-date">${new Date(c.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+              </div>
+            </div>`).join('')
+        }
+        ${currentUser ? `
+          <div class="detail-comment-form">
+            <input class="detail-comment-input" id="detail-comment-input-${issue.id}" placeholder="Add a comment…" maxlength="400"
+              onkeydown="if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); postDetailComment('${issue.id}'); }" />
+            <button class="btn btn-sm btn-primary" onclick="postDetailComment('${issue.id}')">Post</button>
+          </div>` : `
+          <div style="font-size:13px; color:var(--text-muted); margin-top:16px; padding-top:16px; border-top:1px solid var(--border);">
+            <a href="#" onclick="openAuthModal();return false;" style="color:var(--civic-blue);">Sign in</a> to leave a comment.
+          </div>`}
+      </div>
+    </div>`;
+}
+
+function closeDetail() {
+  document.getElementById('detail-view').classList.remove('active');
+  document.getElementById('feed-view').classList.remove('hidden');
+  document.getElementById('detail-content').innerHTML = '';
+  window.scrollTo(0, 0);
+}
+
+async function voteDetail(issueId, dir) {
+  if (!currentUser) { openAuthModal(); return; }
+  const prev = userVotes[issueId] || 0;
+  const newVal = prev === dir ? 0 : dir;
+  const delta = newVal - prev;
+
+  const scoreEl = document.getElementById(`detail-score-${issueId}`);
+  if (scoreEl) scoreEl.textContent = parseInt(scoreEl.textContent) + delta;
+  userVotes[issueId] = newVal;
+
+  // Sync button states
+  const btns = document.querySelectorAll(`[onclick*="voteDetail('${issueId}'"]`);
+  btns.forEach(btn => {
+    btn.classList.remove('voted-up', 'voted-down');
+    if (newVal === 1) btns[0].classList.add('voted-up');
+    if (newVal === -1) btns[1].classList.add('voted-down');
+  });
+
+  if (newVal === 0) {
+    await sb.from('votes').delete().eq('user_id', currentUser.id).eq('issue_id', issueId);
+  } else {
+    await sb.from('votes').upsert({ user_id: currentUser.id, issue_id: issueId, value: newVal }, { onConflict: 'user_id,issue_id' });
+  }
+  const { data } = await sb.rpc('recalc_vote_score', { p_issue_id: issueId });
+  if (scoreEl && data !== null) scoreEl.textContent = data;
+}
+
+async function postDetailComment(issueId) {
+  const input = document.getElementById(`detail-comment-input-${issueId}`);
+  const body = input.value.trim();
+  if (!body) return;
+  const isOfficial = OFFICIAL_EMAILS.includes(currentUser.email);
+  const { error } = await sb.from('comments').insert({
+    issue_id: issueId,
+    user_id: currentUser.id,
+    author_name: currentUser.email.split('@')[0],
+    body,
+    is_official: isOfficial,
+  });
+  if (!error) {
+    input.value = '';
+    await openDetail(issueId);  // re-render to show new comment
+  }
 }
 
 // ════════════════════════════════════════════════════
