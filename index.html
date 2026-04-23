@@ -1326,8 +1326,7 @@ async function submitNewPassword() {
   if (pass.length < 6) { showError(errEl, 'Password must be at least 6 characters.'); return; }
   if (pass !== confirm) { showError(errEl, 'Passwords do not match.'); return; }
 
-  // Use the recovery session stored when the PASSWORD_RECOVERY event fired.
-  // This avoids calling getSession() which can conflict with the recovery flow.
+  // Confirm the PASSWORD_RECOVERY event was received before proceeding
   if (!window._recoverySession) {
     showError(errEl, 'Your reset link has expired. Please request a new one.');
     return;
@@ -1336,12 +1335,8 @@ async function submitNewPassword() {
   const btn = document.getElementById('reset-submit-btn');
   btn.disabled = true; btn.textContent = 'Updating…';
 
-  // Set the recovery session explicitly so updateUser has the right context
-  await sb.auth.setSession({
-    access_token: window._recoverySession.access_token,
-    refresh_token: window._recoverySession.refresh_token,
-  });
-
+  // Call updateUser directly — the PASSWORD_RECOVERY event already established
+  // the correct session. Calling setSession() again causes a lock conflict.
   const { error } = await sb.auth.updateUser({ password: pass });
 
   btn.disabled = false; btn.textContent = 'Update password';
