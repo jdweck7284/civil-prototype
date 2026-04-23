@@ -602,7 +602,23 @@ const NEIGHBORHOODS = ['Santa Monica', 'Venice'];
   document.getElementById('auth-btn').addEventListener('click', openAuthModal);
   document.getElementById('report-btn').addEventListener('click', () => {
     if (!currentUser) { openAuthModal(); return; }
+    // Clear any stale error/success state from a previous attempt
+    const errEl = document.getElementById('report-error');
+    const successEl = document.getElementById('report-success');
+    errEl.style.display = 'none';
+    errEl.textContent = '';
+    successEl.style.display = 'none';
     openModal('report-modal');
+  });
+
+  // Clear report error as soon as the user starts editing any field
+  ['issue-title', 'issue-cat', 'issue-hood', 'issue-loc', 'issue-desc'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', () => {
+      const errEl = document.getElementById('report-error');
+      errEl.style.display = 'none';
+      errEl.textContent = '';
+    });
   });
   document.getElementById('submit-issue-btn').addEventListener('click', submitIssue);
   document.getElementById('auth-submit-btn').addEventListener('click', doAuth);
@@ -832,6 +848,20 @@ async function submitIssue() {
   if (!location) { showError(errEl, 'Please enter a location.'); return; }
   if (!description) { showError(errEl, 'Please add a description.'); return; }
 
+  // ── Refresh session before submitting ──
+  // Silently re-authenticates if the token expired mid-visit —
+  // the most common cause of the silent submit-does-nothing bug
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) {
+    currentUser = null;
+    userVotes = {};
+    renderAuthUI();
+    closeModal('report-modal');
+    showToast('Your session expired — please sign in again to submit.');
+    openAuthModal();
+    return;
+  }
+
   // ── Rate limit: max 5 issues per hour, no two submissions within 2 minutes ──
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
   const { data: recentIssues } = await sb.from('issues')
@@ -841,7 +871,7 @@ async function submitIssue() {
     .order('created_at', { ascending: false });
 
   if (recentIssues && recentIssues.length >= 5) {
-    showError(errEl, "You\'ve submitted 5 issues in the last hour. Please wait a little while before submitting more.");
+    showError(errEl, "You've submitted 5 issues in the last hour. Please wait a little while before submitting more.");
     return;
   }
 
@@ -864,7 +894,14 @@ async function submitIssue() {
   });
 
   btn.disabled = false; btn.textContent = 'Submit issue';
-  if (error) { showError(errEl, error.message); return; }
+  if (error) {
+    if (error.message.includes('JWT') || error.message.includes('token') || error.message.includes('auth')) {
+      showError(errEl, 'Your session expired. Please close this form, sign in again, and resubmit.');
+    } else {
+      showError(errEl, 'Something went wrong. Please try again.');
+    }
+    return;
+  }
 
   // Also add the submitter's upvote
   const { data: newIssue } = await sb.from('issues').select('id').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(1).single();
@@ -1242,7 +1279,12 @@ function attachFilterListeners() {
 function openModal(id) { document.getElementById(id).style.display = 'flex'; }
 function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 function escHtml(str) { return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-function showError(el, msg) { el.textContent = msg; el.style.display = 'block'; }
+function showError(el, msg) {
+  el.textContent = msg;
+  el.style.display = 'block';
+  // Scroll error into view so users at the bottom of the form always see it
+  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('show');
