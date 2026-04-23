@@ -1295,9 +1295,27 @@ function showToast(msg) {
 // ════════════════════════════════════════════════════
 //  Password reset handler
 // ════════════════════════════════════════════════════
-// Supabase puts the recovery token in the URL hash when
-// the user clicks the reset link in their email.
-// We detect it here and show the new-password modal.
+// ════════════════════════════════════════════════════
+//  Password reset — token detection + update
+// ════════════════════════════════════════════════════
+// Supabase embeds the recovery token in the URL hash fragment.
+// We parse it explicitly on page load rather than relying solely
+// on onAuthStateChange, which can miss the event in Chrome/Safari
+// if it fires before the page is ready.
+(async () => {
+  const hash = window.location.hash;
+  if (hash && hash.includes('type=recovery')) {
+    // Extract and set the session from the URL hash so updateUser works
+    const { data, error } = await sb.auth.getSessionFromUrl({ reuse: false });
+    if (!error && data?.session) {
+      openModal('reset-modal');
+      // Clean the token out of the URL bar so a refresh doesn\'t re-trigger
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }
+})();
+
+// Also catch via onAuthStateChange as a fallback
 sb.auth.onAuthStateChange(async (event, session) => {
   if (event === 'PASSWORD_RECOVERY') {
     openModal('reset-modal');
@@ -1320,37 +1338,28 @@ async function submitNewPassword() {
   const btn = document.getElementById('reset-submit-btn');
   btn.disabled = true; btn.textContent = 'Updating…';
 
-  // Safari needs a short delay for the recovery session to fully settle
-  // before updateUser can succeed
-  await new Promise(resolve => setTimeout(resolve, 500));
-
-  // Set a hard timeout so the button never stays stuck
-  let timedOut = false;
-  const timeoutId = setTimeout(() => {
-    timedOut = true;
+  // Verify we still have a valid recovery session before attempting the update
+  const { data: { session: recoverySession } } = await sb.auth.getSession();
+  if (!recoverySession) {
     btn.disabled = false; btn.textContent = 'Update password';
-    showError(errEl, 'Request timed out. Please try again.');
-  }, 8000);
+    showError(errEl, 'Your reset link has expired. Please request a new one from the sign-in page.');
+    return;
+  }
 
   const { error } = await sb.auth.updateUser({ password: pass });
-
-  clearTimeout(timeoutId);
-  if (timedOut) return;
 
   btn.disabled = false; btn.textContent = 'Update password';
 
   if (error) {
-    // Safari sometimes returns a session error even on success — 
-    // check if we actually have a valid session before showing an error
-    const { data: { session } } = await sb.auth.getSession();
-    if (!session) { showError(errEl, error.message); return; }
+    showError(errEl, 'Could not update password. Your reset link may have expired — please request a new one.');
+    return;
   }
 
   // Clear the form fields
   document.getElementById('reset-pass').value = '';
   document.getElementById('reset-pass-confirm').value = '';
 
-  // Show the green success banner inside the modal first
+  // Show the green success banner
   successEl.textContent = '✓ Password updated successfully! You are now signed in.';
   successEl.style.display = 'block';
   successEl.style.background = 'var(--civic-green-light)';
@@ -1360,11 +1369,12 @@ async function submitNewPassword() {
   successEl.style.fontSize = '13px';
   successEl.style.fontWeight = '500';
 
-  // Close modal after user has had time to read it
+  // Close modal after a beat
   setTimeout(() => {
     closeModal('reset-modal');
     successEl.style.display = 'none';
     showToast('✓ Password updated. Welcome back!');
+    renderAuthUI();
   }, 2200);
 }
 
