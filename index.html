@@ -600,16 +600,17 @@ const NEIGHBORHOODS = ['Santa Monica', 'Venice'];
     if (session) await handleSession(session);
   }
 
-  sb.auth.onAuthStateChange(async (event, session) => {
+  sb.auth.onAuthStateChange((event, session) => {
     if (event === 'PASSWORD_RECOVERY') {
-      // Store session so submitNewPassword can use it directly
-      window._recoverySession = session;
+      // Store tokens for direct REST call — bypasses the JS client lock
+      window._recoveryAccessToken = session.access_token;
+      window._recoveryReady = true;
       window.history.replaceState(null, '', window.location.pathname);
       openModal('reset-modal');
-      // Also load the feed in the background
-      await loadIssues();
+      // Load feed without awaiting — don't hold the lock
+      loadIssues();
     } else if (session) {
-      await handleSession(session);
+      handleSession(session);
     } else {
       currentUser = null; userVotes = {}; renderAuthUI(); renderFeed();
     }
@@ -1326,8 +1327,8 @@ async function submitNewPassword() {
   if (pass.length < 6) { showError(errEl, 'Password must be at least 6 characters.'); return; }
   if (pass !== confirm) { showError(errEl, 'Passwords do not match.'); return; }
 
-  // Confirm the PASSWORD_RECOVERY event was received before proceeding
-  if (!window._recoverySession) {
+  // Confirm the PASSWORD_RECOVERY event has fired
+  if (!window._recoveryReady || !window._recoveryAccessToken) {
     showError(errEl, 'Your reset link has expired. Please request a new one.');
     return;
   }
@@ -1335,19 +1336,41 @@ async function submitNewPassword() {
   const btn = document.getElementById('reset-submit-btn');
   btn.disabled = true; btn.textContent = 'Updating…';
 
-  // Call updateUser directly — the PASSWORD_RECOVERY event already established
-  // the correct session. Calling setSession() again causes a lock conflict.
-  const { error } = await sb.auth.updateUser({ password: pass });
+  // Use a direct REST call instead of sb.auth.updateUser() to completely
+  // bypass the Supabase JS client internal lock — this avoids the deadlock
+  // that occurs when updateUser competes with the onAuthStateChange callback.
+  const supabaseUrl = SUPABASE_URL;
+  const accessToken = window._recoveryAccessToken;
+
+  let updateError = null;
+  try {
+    const res = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+        'apikey': SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({ password: pass }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      updateError = body.message || `Error ${res.status}`;
+    }
+  } catch (e) {
+    updateError = e.message;
+  }
 
   btn.disabled = false; btn.textContent = 'Update password';
 
-  if (error) {
+  if (updateError) {
     showError(errEl, 'Could not update password. Please request a new reset link.');
     return;
   }
 
-  // Clear stored recovery session
-  window._recoverySession = null;
+  // Clear stored recovery tokens
+  window._recoveryReady = false;
+  window._recoveryAccessToken = null;
 
   // Clear the form fields
   document.getElementById('reset-pass').value = '';
@@ -1363,12 +1386,15 @@ async function submitNewPassword() {
   successEl.style.fontSize = '13px';
   successEl.style.fontWeight = '500';
 
-  // Update header and close modal
-  await handleSession(await sb.auth.getSession().then(r => r.data.session));
-  setTimeout(() => {
+  // Sign the user in with their new password so the session is fresh
+  setTimeout(async () => {
     closeModal('reset-modal');
     successEl.style.display = 'none';
     showToast('✓ Password updated. Welcome back!');
+    // Trigger a fresh session load
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) await handleSession(session);
+    else renderAuthUI();
   }, 2200);
 }
 
