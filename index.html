@@ -589,12 +589,30 @@ const NEIGHBORHOODS = ['Santa Monica', 'Venice'];
 //  Init
 // ════════════════════════════════════════════════════
 (async () => {
-  const { data: { session } } = await sb.auth.getSession();
-  if (session) await handleSession(session);
+  // If this page load is from a password reset link, the hash will contain
+  // the recovery token. We skip the normal getSession() call in that case
+  // and let the onAuthStateChange PASSWORD_RECOVERY handler take over,
+  // which avoids the lock conflict that causes the 422 error.
+  const isRecoveryFlow = window.location.hash.includes('type=recovery');
 
-  sb.auth.onAuthStateChange(async (_event, session) => {
+  if (!isRecoveryFlow) {
+    const { data: { session } } = await sb.auth.getSession();
     if (session) await handleSession(session);
-    else { currentUser = null; userVotes = {}; renderAuthUI(); renderFeed(); }
+  }
+
+  sb.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'PASSWORD_RECOVERY') {
+      // Store session so submitNewPassword can use it directly
+      window._recoverySession = session;
+      window.history.replaceState(null, '', window.location.pathname);
+      openModal('reset-modal');
+      // Also load the feed in the background
+      await loadIssues();
+    } else if (session) {
+      await handleSession(session);
+    } else {
+      currentUser = null; userVotes = {}; renderAuthUI(); renderFeed();
+    }
   });
 
   attachFilterListeners();
@@ -1293,25 +1311,8 @@ function showToast(msg) {
 
 
 // ════════════════════════════════════════════════════
-//  Password reset handler
+//  Password reset — submitNewPassword
 // ════════════════════════════════════════════════════
-// ════════════════════════════════════════════════════
-//  Password reset — token detection + update
-// ════════════════════════════════════════════════════
-// In Supabase JS v2, the PASSWORD_RECOVERY event fired by
-// onAuthStateChange is the correct and only way to handle reset links.
-// The client library automatically parses the hash fragment —
-// we just need to listen for the event and open the modal.
-// We use a single listener to avoid the race condition that caused
-// the "lock stolen" error when two handlers tried to consume the token.
-sb.auth.onAuthStateChange(async (event, session) => {
-  if (event === 'PASSWORD_RECOVERY') {
-    // Clean the hash from the URL bar so a page refresh doesn\'t re-trigger
-    window.history.replaceState(null, '', window.location.pathname);
-    openModal('reset-modal');
-  }
-});
-
 async function submitNewPassword() {
   const pass = document.getElementById('reset-pass').value;
   const confirm = document.getElementById('reset-pass-confirm').value;
@@ -1325,25 +1326,33 @@ async function submitNewPassword() {
   if (pass.length < 6) { showError(errEl, 'Password must be at least 6 characters.'); return; }
   if (pass !== confirm) { showError(errEl, 'Passwords do not match.'); return; }
 
+  // Use the recovery session stored when the PASSWORD_RECOVERY event fired.
+  // This avoids calling getSession() which can conflict with the recovery flow.
+  if (!window._recoverySession) {
+    showError(errEl, 'Your reset link has expired. Please request a new one.');
+    return;
+  }
+
   const btn = document.getElementById('reset-submit-btn');
   btn.disabled = true; btn.textContent = 'Updating…';
 
-  // Verify we still have a valid recovery session before attempting the update
-  const { data: { session: recoverySession } } = await sb.auth.getSession();
-  if (!recoverySession) {
-    btn.disabled = false; btn.textContent = 'Update password';
-    showError(errEl, 'Your reset link has expired. Please request a new one from the sign-in page.');
-    return;
-  }
+  // Set the recovery session explicitly so updateUser has the right context
+  await sb.auth.setSession({
+    access_token: window._recoverySession.access_token,
+    refresh_token: window._recoverySession.refresh_token,
+  });
 
   const { error } = await sb.auth.updateUser({ password: pass });
 
   btn.disabled = false; btn.textContent = 'Update password';
 
   if (error) {
-    showError(errEl, 'Could not update password. Your reset link may have expired — please request a new one.');
+    showError(errEl, 'Could not update password. Please request a new reset link.');
     return;
   }
+
+  // Clear stored recovery session
+  window._recoverySession = null;
 
   // Clear the form fields
   document.getElementById('reset-pass').value = '';
@@ -1359,12 +1368,12 @@ async function submitNewPassword() {
   successEl.style.fontSize = '13px';
   successEl.style.fontWeight = '500';
 
-  // Close modal after a beat
+  // Update header and close modal
+  await handleSession(await sb.auth.getSession().then(r => r.data.session));
   setTimeout(() => {
     closeModal('reset-modal');
     successEl.style.display = 'none';
     showToast('✓ Password updated. Welcome back!');
-    renderAuthUI();
   }, 2200);
 }
 
