@@ -1298,26 +1298,16 @@ function showToast(msg) {
 // ════════════════════════════════════════════════════
 //  Password reset — token detection + update
 // ════════════════════════════════════════════════════
-// Supabase embeds the recovery token in the URL hash fragment.
-// We parse it explicitly on page load rather than relying solely
-// on onAuthStateChange, which can miss the event in Chrome/Safari
-// if it fires before the page is ready.
-(async () => {
-  const hash = window.location.hash;
-  if (hash && hash.includes('type=recovery')) {
-    // Extract and set the session from the URL hash so updateUser works
-    const { data, error } = await sb.auth.getSessionFromUrl({ reuse: false });
-    if (!error && data?.session) {
-      openModal('reset-modal');
-      // Clean the token out of the URL bar so a refresh doesn\'t re-trigger
-      window.history.replaceState(null, '', window.location.pathname);
-    }
-  }
-})();
-
-// Also catch via onAuthStateChange as a fallback
+// In Supabase JS v2, the PASSWORD_RECOVERY event fired by
+// onAuthStateChange is the correct and only way to handle reset links.
+// The client library automatically parses the hash fragment —
+// we just need to listen for the event and open the modal.
+// We use a single listener to avoid the race condition that caused
+// the "lock stolen" error when two handlers tried to consume the token.
 sb.auth.onAuthStateChange(async (event, session) => {
   if (event === 'PASSWORD_RECOVERY') {
+    // Clean the hash from the URL bar so a page refresh doesn\'t re-trigger
+    window.history.replaceState(null, '', window.location.pathname);
     openModal('reset-modal');
   }
 });
